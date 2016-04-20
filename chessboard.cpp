@@ -84,19 +84,33 @@ void Board::print() const {
 */
 
 // move validity checks
+enum MOVE_VALIDITY {
+	ADD, STOP, ADD_STOP
+};
 struct OnlyIfEmpty {
-	inline bool operator() (const Player player, const Piece piece) {
-		return piece == 0;
+	//inline bool operator() (const Player player, const Piece piece) {
+	//	return piece == 0;
+	//}
+	static inline MOVE_VALIDITY shouldAdd(const Player player, const Piece piece) {
+		return piece == 0 ? ADD : STOP;
 	}
 };
 struct OnlyIfEmptyOrCapture {
-	inline bool operator() (const Player player, const Piece piece) {
-		return piece * player <= 0;
+	static inline MOVE_VALIDITY shouldAdd(const Player player, const Piece piece) {
+		if (piece == 0)
+			return ADD;
+		else if (piece * player < 0)
+			return ADD_STOP;
+		else
+			return STOP;
 	}
 };
 struct OnlyIfCapture {
-	inline bool operator() (const Player player, const Piece piece) {
-		return piece * player < 0;
+	static inline MOVE_VALIDITY shouldAdd(const Player player, const Piece piece) {
+		if (piece * player < 0)
+			return ADD_STOP;
+		else
+			return STOP;
 	}
 };
 
@@ -125,6 +139,9 @@ struct NoBoundCheck {
 };
 
 
+/*
+	move to a position with an offset!
+*/
 template<class STORE, int dx, int dy, class CanMoveTo>
 bool moveTo(Board* board, Player player, int x, int y, STORE& store) {
 	typename std::conditional < (dx > 0), UpperBoundCheck<BOARD_DIM>::type, LowerBoundCheck<0>::type >::type xCheck;
@@ -132,33 +149,54 @@ bool moveTo(Board* board, Player player, int x, int y, STORE& store) {
 
 	if (!xCheck(x + dx) || !yCheck(y + dy))
 		return false;
+	
 
-	const int from = (x) + (y) * BOARD_DIM;
-	const int to = (x + dx) + (y + dy) * BOARD_DIM;
+	const int from = Board::xyToIndex(x, y);
+	const int to = Board::xyToIndex(x + dx, y + dy);
 
-	if (CanMoveTo()(player, board->pieces[to])) {
-		store.put(Move(board, from, to));
-		return true;
-	} else
-		return false;
+	switch (CanMoveTo::shouldAdd(player, board->pieces[to])) {
+		case MOVE_VALIDITY::ADD:
+			store.put(Move(board, from, to));
+			return true;
+		case MOVE_VALIDITY::ADD_STOP:
+			store.put(Move(board, from, to));
+			return false;
+		case MOVE_VALIDITY::STOP:
+			return false;
+	}
 }
+
+/*
+	move along a vector
+*/
+template<class STORE, int dx, int dy, class CanMoveTo, int distance>
+struct _MoveAlongVector {
+	static inline void run(Board* board, Player player, int x, int y, STORE& store) {
+		if (moveTo<STORE, dx * distance, dy * distance, CanMoveTo>(board, player, x, y, store))
+			return _MoveAlongVector<STORE, dx, dy, CanMoveTo, distance + 1>::run(board, player, x, y, store);
+	}
+};
+
+template<class STORE, int dx, int dy, class CanMoveTo>
+struct _MoveAlongVector<STORE, dx, dy, CanMoveTo, 8> {
+	static inline void run(Board* board, Player player, int x, int y, STORE& store) { }
+};
 
 template<class STORE, int dx, int dy, class CanMoveTo>
 void moveAlongVector(Board* board, Player player, int x, int y, STORE& store) {
-	while (moveTo<STORE, dx, dy, CanMoveTo>(board, player, x, y, store)) {
-		x += dx;
-		y += dy;
-	}
+	_MoveAlongVector<STORE, dx, dy, CanMoveTo, 1>::run(board, player, x, y, store);
 }
 
 template<class STORE>
 void generateMoves(Board* board, Player player, int index, STORE& store) {
 	int x = Board::indexToX(index);
 	int y = Board::indexToY(index);
+
 	Piece p = board->getPieceAt(index) * player;
 	
 	switch (p) {
 		case PIECE_PAWN:
+
 			if (player > 0) {
 				if (moveTo<STORE, 0, 1, OnlyIfEmpty>(board, player, x, y, store)) {
 					if (y == 1) {
@@ -223,7 +261,7 @@ void generateMoves(Board* board, Player player, int index, STORE& store) {
 			moveAlongVector<STORE, -1,  1, OnlyIfEmptyOrCapture>(board, player, x, y, store);
 			moveAlongVector<STORE,  1, -1, OnlyIfEmptyOrCapture>(board, player, x, y, store);
 			moveAlongVector<STORE,  1,  1, OnlyIfEmptyOrCapture>(board, player, x, y, store);
-			
+
 			break;
 
 		case PIECE_KING:

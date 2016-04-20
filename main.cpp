@@ -1,6 +1,7 @@
 #include <iostream>
 #include "chessboard.h"
 #include "minimax.h"
+#include <unistd.h>
 
 using namespace std;
 
@@ -31,7 +32,7 @@ struct ChessMoveIterator {
 };
 
 typedef minimax::AbstractGameState<chess::Board, ChessHeuristic, ChessMoveIterator, ChessPlayer, int> ChessGameTypes;
-typedef minimax::Minimax<ChessGameTypes, true, 5> ChessGameMinimax;
+typedef minimax::Minimax<ChessGameTypes, true, 7> ChessGameMinimax;
 
 int main(int argc, const char** args) {
 	cout << "Chess Engine v2 by Gareth George" << endl;
@@ -40,18 +41,25 @@ int main(int argc, const char** args) {
 	ChessPlayer player2(-1);
 	chess::Board board;
 
-	chess::Move move;
-	ChessGameMinimax::run(&board, player1, INT_MIN, INT_MAX, move);
+	int moveCount = 0;
+	while (true) {
+		std::cout << "Move #" << ++moveCount << " @ PLAYER 1" << std::endl;
+		chess::Move move;
+		ChessGameMinimax::run(&board, player1, INT_MIN, INT_MAX, move);
+		std::cout << "\tmove: " << move.toString() << std::endl;
+		assert(!(move.changes[1].piece == 0));
+		move.apply(&board);
+		board.print();
 
-	move.apply(&board);
 
-	chess::Move move2;
-	ChessGameMinimax::run(&board, player2, INT_MIN, INT_MAX, move2);
+		std::cout << "Move #" << ++moveCount << " @ PLAYER 2" << std::endl;
+		ChessGameMinimax::run(&board, player2, INT_MIN, INT_MAX, move);
+		std::cout << "\tmove: " << move.toString() << std::endl;
+		assert(!(move.changes[1].piece == 0));
+		move.apply(&board);
+		board.print();
 
-	move2.apply(&board);
-
-
-	board.print();
+	}
 
 	cout << "Done, shutdown." << endl;
 }

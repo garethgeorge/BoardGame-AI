@@ -3,6 +3,7 @@
 
 #include <stdint.h>
 #include <string>
+#include <cassert>
 
 namespace chess {
 
@@ -85,13 +86,12 @@ inline char pieceGetLetter(Piece piece) {
 */
 struct Board;
 struct Move {
-private:
 	struct PiecePosPair {
 		Position index;
 		Piece piece;
 	};
 	PiecePosPair changes[4]; // up to 4 changes can be made
-public:
+
 	Move();
 	Move(const Board* board, Position p1, Position p2);
 
@@ -131,6 +131,8 @@ struct Board {
 	static inline T indexToX(T index) { return index % BOARD_DIM; };
 	template<typename T>
 	static inline T indexToY(T index) { return index / BOARD_DIM; }; 
+	template<typename T>
+	static inline T xyToIndex(T x, T y) { return x + y * BOARD_DIM; };
 
 	void print() const;
 };
@@ -144,7 +146,6 @@ struct MoveIterator : public MoveCache {
 	int moveCount;
 	Move moves[128];
 
-	MoveIterator() : moveCount(0) { };
 	MoveIterator(Board* board, Player player) : moveCount(0) {
 		generateMoves<MoveIterator>(board, player, *this);
 	}
@@ -182,7 +183,7 @@ inline Move::Move(const Board* board, Position p1, Position p2) {
 
 inline void Move::apply(Board* board) {
 	for (int i = 0; i < sizeof(changes) / sizeof(PiecePosPair); ++i) {
-		if (changes[i].index == -1)
+		if (changes[i].index < 0)
 			break;
 		Piece old = board->getPieceAt(changes[i].index);
 		board->setPieceAt(changes[i].index, changes[i].piece);

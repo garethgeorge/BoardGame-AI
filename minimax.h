@@ -3,6 +3,7 @@
 
 #include <type_traits>
 #include <stdint.h>
+#include <cassert>
 
 /*
 namespace minimax_concepts {
@@ -42,9 +43,6 @@ struct AbstractGameStateBaseClass { }; // needed for static_assert type checking
 
 template<class BOARD, class HEURISTIC, class TRANSITION_ITERATOR, class PLAYER, typename SCORE>
 struct AbstractGameState : public AbstractGameStateBaseClass {
-	AbstractGameState() {
-	}
-
 	typedef BOARD BoardType;
 	typedef HEURISTIC HeuristicType;
 	typedef TRANSITION_ITERATOR IteratorType;
@@ -122,7 +120,7 @@ struct Minimax<AG, maximizing, 0> {
 	}
 
 	static typename AG::ScoreType run(typename AG::BoardType* board, typename AG::PlayerType player, int alpha, int beta, typename AG::TransitionType& trash) {
-		return AG::HeuristicType::getScore(board, player);
+		return AG::HeuristicType::getScore(board, maximizing ? player : player.getOpponent());
 	}
 };
 	
