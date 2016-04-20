@@ -16,7 +16,7 @@ program: $(OBJECTS)
 bin/chessboard.o: chessboard.cpp chessboard.h
 	$(CXX) $(CPPFLAGS) -c chessboard.cpp -o bin/chessboard.o
 
-bin/main.o: main.cpp 
+bin/main.o: main.cpp minimax.h chessboard.h
 	$(CXX) $(CPPFLAGS) -c main.cpp -o bin/main.o
 
 clean:

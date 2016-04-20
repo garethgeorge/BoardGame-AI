@@ -38,7 +38,10 @@ Board::Board() {
 Score Board::getScore() {
 	int score = 0;
 	for (int i = BOARD_SPACES - 1; i >= 0; --i) {
-		score += pieces[i];
+		if (pieces[i] < 0)
+			score -= pieceGetValue(-pieces[i]);
+		else if(pieces[i] > 0)
+			score += pieceGetValue(pieces[i]);
 	}
 	return score;
 }
@@ -295,7 +298,6 @@ void generateMoves(Board* board, Player player, STORE& store) {
 
 // specializations of the template code
 template void generateMoves<MoveIterator>(Board*, Player, MoveIterator& store);
-	
 
 
 // move class

@@ -39,10 +39,11 @@ namespace minimax_concepts {
 
 namespace minimax {
 
-struct AbstractGameStateBaseClass { }; // needed for static_assert type checking
+
+struct AbstractGameBaseClass { }; // needed for static_assert type checking
 
 template<class BOARD, class HEURISTIC, class TRANSITION_ITERATOR, class PLAYER, typename SCORE>
-struct AbstractGameState : public AbstractGameStateBaseClass {
+struct AbstractGame : public AbstractGameBaseClass {
 	typedef BOARD BoardType;
 	typedef HEURISTIC HeuristicType;
 	typedef TRANSITION_ITERATOR IteratorType;
@@ -50,20 +51,31 @@ struct AbstractGameState : public AbstractGameStateBaseClass {
 	typedef SCORE ScoreType;
 	typedef typename IteratorType::TransitionType TransitionType;
 
-	typedef AbstractGameState<BoardType, HeuristicType, IteratorType, PlayerType, ScoreType> nextTurn;
+	typedef AbstractGame<BoardType, HeuristicType, IteratorType, PlayerType, ScoreType> nextTurn;
 };
 
-template<class AG, bool maximizing, int depth>
+/*
+	AG - an abstract game
+*/
+
+template<class AG, bool maximizing, typename depth, typename... deeper>
 struct Minimax {
 	Minimax() {
-		static_assert(std::is_base_of<AbstractGameStateBaseClass, AG>::value, "template parameter AG must be a template specialization of AbstractGame.");
+		static_assert(std::is_base_of<AbstractGameBaseClass, AG>::value, "template parameter AG must be a template specialization of AbstractGame.");
 	}
 
-	typedef Minimax<typename AG::nextTurn, !maximizing, depth - 1> NextMinimax;
+	typedef Minimax<typename AG::nextTurn, !maximizing, typename std::integral_constant<int, depth::value - 1>, deeper...> NextMinimax;
 
-	static typename AG::ScoreType run(typename AG::BoardType* board, typename AG::PlayerType player, typename AG::ScoreType alpha, typename AG::ScoreType beta, typename AG::TransitionType& bestTransition) {
+	static typename AG::ScoreType getBestMove(typename AG::BoardType* board, typename AG::PlayerType player, typename AG::ScoreType alpha, typename AG::ScoreType beta, typename AG::TransitionType& bestTransition) {
+		typename AG::BoardType boardOriginal = *board; // copy the board so we have a reference to the original
+		typename AG::BoardType boardPassdown = *board; // copy of the board that we will pass down the algorithm calls
+
+		return run(&boardOriginal, &boardPassdown, player, alpha, beta, bestTransition);
+	}
+
+	static typename AG::ScoreType run(typename AG::BoardType* originalBoard, typename AG::BoardType* board, typename AG::PlayerType player, typename AG::ScoreType alpha, typename AG::ScoreType beta, typename AG::TransitionType& bestTransition) {
 		typename AG::PlayerType nextPlayer = player.getOpponent();
-			
+
 		typename AG::IteratorType moveIterator(board, player);
 		typename AG::IteratorType::TransitionType transition;
 		typename AG::IteratorType::TransitionType trash;
@@ -74,7 +86,7 @@ struct Minimax {
 
 			while (moveIterator.getNext(transition)) {
 				transition.apply(board);
-				typename AG::ScoreType score = NextMinimax::run(board, nextPlayer, alpha, beta, trash);
+				typename AG::ScoreType score = NextMinimax::run(originalBoard, board, nextPlayer, alpha, beta, trash);
 				transition.apply(board);
 
 				if (score > max) {
@@ -94,7 +106,7 @@ struct Minimax {
 
 			while (moveIterator.getNext(transition)) {
 				transition.apply(board);
-				typename AG::ScoreType score = NextMinimax::run(board, nextPlayer, alpha, beta, trash);
+				typename AG::ScoreType score = NextMinimax::run(originalBoard, board, nextPlayer, alpha, beta, trash);
 				transition.apply(board);
 
 				if (score < min) {
@@ -113,17 +125,32 @@ struct Minimax {
 	}
 };
 
-template<class AG, bool maximizing>
-struct Minimax<AG, maximizing, 0> {
+template<class AG, bool maximizing, typename... deeper>
+struct Minimax<AG, maximizing, std::integral_constant<int, 0>, deeper...> {
 	Minimax() {
-		static_assert(std::is_base_of<AbstractGameStateBaseClass, AG>::value, "template parameter AG must be a template specialization of AbstractGame.");
+		static_assert(std::is_base_of<AbstractGameBaseClass, AG>::value, "template parameter AG must be a template specialization of AbstractGame.");
 	}
 
-	static typename AG::ScoreType run(typename AG::BoardType* board, typename AG::PlayerType player, int alpha, int beta, typename AG::TransitionType& trash) {
+	static typename AG::ScoreType run(typename AG::BoardType* originalBoard, typename AG::BoardType* board, typename AG::PlayerType player, int alpha, int beta, typename AG::TransitionType& trash) {
+		if (true) {
+			return Minimax<AG, maximizing, deeper...>::getBestMove(board, player, alpha, beta, trash);
+		}
+
 		return AG::HeuristicType::getScore(board, maximizing ? player : player.getOpponent());
 	}
 };
-	
+
+template<class AG, bool maximizing>
+struct Minimax<AG, maximizing, std::integral_constant<int, 0>> {
+	Minimax() {
+		static_assert(std::is_base_of<AbstractGameBaseClass, AG>::value, "template parameter AG must be a template specialization of AbstractGame.");
+	}
+
+	static typename AG::ScoreType run(typename AG::BoardType* originalBoard, typename AG::BoardType* board, typename AG::PlayerType player, int alpha, int beta, typename AG::TransitionType& trash) {
+		return AG::HeuristicType::getScore(board, maximizing ? player : player.getOpponent());
+	}
+};
+
 
 }
 #endif
